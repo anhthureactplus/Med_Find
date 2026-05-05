@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tìm kiếm – MedFind</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <style>
+    /* ── Filter sidebar ── */
+    .search-layout {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+    }
+
+    .filter-sidebar {
+      width: 220px;
+      flex-shrink: 0;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      position: sticky;
+      top: 76px;
+    }
+
+    .filter-sidebar h3 {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--blue);
+    }
+
+    .filter-group { margin-bottom: 18px; }
+
+    .filter-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 8px;
+    }
+
+    .filter-option {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 0;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .filter-option input[type=checkbox] {
+      accent-color: var(--blue);
+      width: 14px;
+      height: 14px;
+    }
+
+    .filter-option:hover { color: var(--blue); }
+
+    .price-inputs {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .price-inputs input {
+      flex: 1;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 5px 8px;
+      font-size: 12px;
+      outline: none;
+      width: 0;
+    }
+
+    .price-inputs input:focus { border-color: var(--blue); }
+    .price-inputs span { color: var(--text2); font-size: 12px; }
+
+    .btn-filter-reset {
+      width: 100%;
+      padding: 7px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 12px;
+      color: var(--text2);
+      cursor: pointer;
+      margin-top: 4px;
+    }
+
+    .btn-filter-reset:hover { background: var(--blue-bg); color: var(--blue); }
+
+    .main-content { flex: 1; min-width: 0; }
+
+    /* ── Pagination ── */
+    .pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 24px;
+      flex-wrap: wrap;
+    }
+
+    .page-btn {
+      min-width: 34px;
+      height: 34px;
+      padding: 0 10px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--white);
+      color: var(--text);
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .18s;
+    }
+
+    .page-btn:hover { border-color: var(--blue); color: var(--blue); }
+    .page-btn.active { background: var(--blue); color: white; border-color: var(--blue); font-weight: 700; }
+    .page-btn:disabled { opacity: .4; cursor: default; }
+
+    .page-info {
+      font-size: 13px;
+      color: var(--text2);
+      margin: 0 6px;
+    }
+
+    @media (max-width: 768px) {
+      .search-layout { flex-direction: column; }
+      .filter-sidebar { width: 100%; position: static; }
+    }
+  </style>
+</head>
+<body>
+
+
+<header class="header">
+  <div class="header-inner">
+    <a href="index.html" class="logo">MedFind<small>Tra cứu dược phẩm</small></a>
+    <div class="h-search">
+      <input type="text" id="q" placeholder="Tìm tên thuốc, thành phần..."/>
+      <button onclick="doSearch()">Tìm kiếm</button>
+    </div>
+    <ul class="h-nav">
+      <li><a href="index.html">Trang chủ</a></li>
+      <li><a href="search.html" class="active">Tìm kiếm</a></li>
+      <li><a href="compare.html">So sánh</a></li>
+    </ul>
+  </div>
+</header>
+
+<div class="cat-bar">
+  <div class="cat-bar-inner">
+    <a href="search.html?q=vitamin">Vitamin & Khoáng chất</a>
+    <a href="search.html?q=omega">Omega 3</a>
+    <a href="search.html?q=canxi">Canxi</a>
+    <a href="search.html?q=collagen">Collagen</a>
+    <a href="search.html?q=bo sung">Bổ sung dinh dưỡng</a>
+    <a href="search.html?q=men vi sinh">Men vi sinh</a>
+    <a href="search.html?q=tang cuong">Tăng cường sức đề kháng</a>
+  </div>
+</div>
+
+<div class="container">
+  <div class="search-layout">
+
+    <!-- ── FILTER SIDEBAR ── -->
+    <aside class="filter-sidebar" id="filter-sidebar">
+      <h3>Bộ lọc</h3>
+
+      <!-- Xuất xứ -->
+      <div class="filter-group">
+        <label>Xuất xứ</label>
+        <div id="filter-origin"></div>
+      </div>
+
+      <!-- Danh mục -->
+      <div class="filter-group">
+        <label>Danh mục</label>
+        <div id="filter-category"></div>
+      </div>
+
+      <!-- Giá -->
+      <div class="filter-group">
+        <label>Khoảng giá (đ)</label>
+        <div class="price-inputs">
+          <input type="number" id="price-min" placeholder="Từ" min="0"/>
+          <span>–</span>
+          <input type="number" id="price-max" placeholder="Đến" min="0"/>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="applyFilters()"
+        style="width:100%;justify-content:center;margin-bottom:8px">
+        Áp dụng bộ lọc
+      </button>
+      <button class="btn-filter-reset" onclick="resetFilters()">Xóa bộ lọc</button>
+    </aside>
+
+    <!-- ── MAIN CONTENT ── -->
+    <div class="main-content">
+
+      <div id="view-list">
+        <div class="result-bar">
+          <span id="ri"></span>
+          <button class="btn btn-outline" id="cmp-btn" style="display:none"
+            onclick="goCmp()">So sánh (<span id="cmp-cnt">0</span>)</button>
+        </div>
+        <div class="p-grid" id="grid">
+          <div class="loading"><div class="spin"></div>Đang tải...</div>
+        </div>
+        <!-- Pagination -->
+        <div class="pagination" id="pagination"></div>
+      </div>
+
+      <div id="view-detail" style="display:none">
+        <button class="btn btn-outline back-btn" style="margin-bottom:14px" onclick="backToList()">
+          ← Quay lại
+        </button>
+        <div id="detail-content"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Floating compare bar -->
+<div class="cmp-bar" id="cmp-bar">
+  Đã chọn <strong id="cmp-bar-cnt">0</strong> sản phẩm
+  <button class="btn btn-white" onclick="goCmp()">So sánh ngay</button>
+  <button class="btn-ghost" onclick="clearCmp()">✕</button>
+</div>
+
+<footer class="footer">
+  <p>Dữ liệu tham khảo từ <a href="https://chiaki.vn" target="_blank">chiaki.vn</a> – Không thay thế tư vấn y tế chuyên nghiệp</p>
+</footer>
+
+<script>
+const API = "http://localhost:8000";
+const PAGE_SIZE = 16;  // Số sản phẩm mỗi trang
+
+let allProducts   = [];   // Toàn bộ kết quả từ API
+let filteredProds = [];   // Sau khi lọc
+let currentPage   = 1;
+let selectedIds   = [];
+
+// ── Tìm kiếm ─────────────────────────────────────────────────
+async function doSearch(keyword) {
+  const kw = keyword !== undefined ? keyword : document.getElementById("q").value.trim();
+  document.getElementById("q").value = kw;
+  showList();
+  currentPage = 1;
+
+  const grid = document.getElementById("grid");
+  grid.innerHTML = `<div class="loading"><div class="spin"></div>Đang tìm...</div>`;
+  document.getElementById("ri").textContent = "";
+  document.getElementById("pagination").innerHTML = "";
+
+  try {
+    const url = kw
+      ? `${API}/search?q=${encodeURIComponent(kw)}`
+      : `${API}/products?limit=200`;
+    const r = await fetch(url);
+    const d = await r.json();
+    allProducts = d.data || [];
+
+    buildFilters(allProducts);
+    applyFilters();
+  } catch {
+    grid.innerHTML = `<div class="empty"><p>Không kết nối được server.</p></div>`;
+  }
+}
+
+// ── Build filter options từ data ──────────────────────────────
+function buildFilters(products) {
+  // Xuất xứ
+  const origins = [...new Set(
+    products.map(p => {
+      if (!p.specifications) return null;
+      // specifications có thể là string JSON hoặc object
+      const specs = typeof p.specifications === "string"
+        ? JSON.parse(p.specifications || "{}") : (p.specifications || {});
+      return specs["Xuất xứ"] || specs["Xuất Xứ"] || null;
+    }).filter(Boolean)
+  )].sort();
+
+  const originBox = document.getElementById("filter-origin");
+  originBox.innerHTML = origins.length
+    ? origins.map(o => `
+        <label class="filter-option">
+          <input type="checkbox" value="${o}"/>
+          ${o}
+        </label>`).join("")
+    : `<span style="color:var(--text2);font-size:12px">Không có dữ liệu</span>`;
+
+  // Danh mục (lấy từ description hoặc tên)
+  const categories = [...new Set(
+    products.map(p => {
+      if (!p.specifications) return null;
+      const specs = typeof p.specifications === "string"
+        ? JSON.parse(p.specifications || "{}") : (p.specifications || {});
+      const cat = specs["Danh mục"] || "";
+      // Lấy phần cuối cùng sau dấu cách nhiều (Long Châu style)
+      const parts = cat.split(/\s{2,}/);
+      return parts[parts.length - 1] || null;
+    }).filter(Boolean)
+  )].sort();
+
+  const catBox = document.getElementById("filter-category");
+  catBox.innerHTML = categories.length
+    ? categories.map(c => `
+        <label class="filter-option">
+          <input type="checkbox" value="${c}"/>
+          ${c}
+        </label>`).join("")
+    : `<span style="color:var(--text2);font-size:12px">Không có dữ liệu</span>`;
+}
+
+// ── Áp dụng filter + render ───────────────────────────────────
+function applyFilters() {
+  // Nếu chưa có data thì load trước
+  if (!allProducts.length) {
+    doSearch(document.getElementById("q").value.trim()).then(() => applyFilters());
+    return;
+  }
+
+  const checkedOrigins = [...document.querySelectorAll("#filter-origin input:checked")]
+    .map(el => el.value);
+  const checkedCats = [...document.querySelectorAll("#filter-category input:checked")]
+    .map(el => el.value);
+  const priceMin = parseFloat(document.getElementById("price-min").value.replace(/[^\d]/g,"")) || 0;
+  const priceMax = parseFloat(document.getElementById("price-max").value.replace(/[^\d]/g,"")) || Infinity;
+
+  // Nếu không chọn gì → show tất cả
+  const noFilter = !checkedOrigins.length && !checkedCats.length && priceMin === 0 && priceMax === Infinity;
+  if (noFilter) {
+    filteredProds = [...allProducts];
+    currentPage = 1;
+    showList();
+    renderPage();
+    return;
+  }
+
+  filteredProds = allProducts.filter(p => {
+    // Parse specs an toàn
+    let specs = {};
+    try {
+      specs = typeof p.specifications === "string"
+        ? JSON.parse(p.specifications || "{}") : (p.specifications || {});
+    } catch(e) { specs = {}; }
+
+    // Lọc xuất xứ
+    if (checkedOrigins.length) {
+      const origin = (specs["Xuất xứ"] || specs["Xuất Xứ"] || "").trim();
+      if (!checkedOrigins.some(o => origin.includes(o) || o.includes(origin))) return false;
+    }
+
+    // Lọc danh mục - so sánh flexible
+    if (checkedCats.length) {
+      const cat = (specs["Danh mục"] || "").toLowerCase();
+      if (!checkedCats.some(c => cat.includes(c.toLowerCase()))) return false;
+    }
+
+    // Lọc giá
+    if (priceMin > 0 || priceMax < Infinity) {
+      const raw = (p.price || "").replace(/[^\d]/g, "");
+      const priceNum = raw ? parseFloat(raw) : null;
+      if (priceNum !== null) {
+        if (priceNum < priceMin || priceNum > priceMax) return false;
+      }
+    }
+
+    return true;
+  });
+
+  currentPage = 1;
+  renderPage();
+}
+
+// Chuyển "759.000đ" → 759000
+function parsePrice(priceStr) {
+  if (!priceStr) return null;
+  const num = parseFloat(priceStr.replace(/[^\d]/g, ""));
+  return isNaN(num) ? null : num;
+}
+
+function resetFilters() {
+  document.querySelectorAll("#filter-origin input, #filter-category input")
+    .forEach(el => el.checked = false);
+  document.getElementById("price-min").value = "";
+  document.getElementById("price-max").value = "";
+  applyFilters();
+}
+
+// ── Render trang hiện tại ────────────────────────────────────
+function renderPage() {
+  const grid = document.getElementById("grid");
+  const ri   = document.getElementById("ri");
+  const total = filteredProds.length;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  ri.textContent = `Hiển thị ${total} sản phẩm`;
+
+  if (!total) {
+    grid.innerHTML = `<div class="empty"><p>Không tìm thấy sản phẩm phù hợp.</p></div>`;
+    document.getElementById("pagination").innerHTML = "";
+    return;
+  }
+
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const items = filteredProds.slice(start, start + PAGE_SIZE);
+
+  grid.innerHTML = items.map(p => {
+    const checked = selectedIds.includes(p.id) ? "checked" : "";
+    const img = p.image_url
+      ? `<img src="${p.image_url}" alt="${p.name}" loading="lazy"
+           onerror="this.parentElement.innerHTML='<span style=font-size:32px;color:#aad4ea>+</span>'">`
+      : `<span style="font-size:32px;color:#aad4ea">+</span>`;
+    const price    = p.price    ? `<div class="p-price">${p.price}</div>` : `<div class="p-price na">Liên hệ</div>`;
+    const oldPrice = p.original_price ? `<div style="font-size:12px;color:#999;text-decoration:line-through">${p.original_price}</div>` : "";
+    const rating   = p.rating   ? `<div style="font-size:12px;color:#f59e0b;margin-top:2px">★ ${p.rating}</div>` : "";
+    return `
+      <div class="p-card" data-id="${p.id}">
+        <input type="checkbox" class="cb-cmp" ${checked}
+          onchange="toggleCmp(${p.id},this)" onclick="event.stopPropagation()" title="Thêm vào so sánh"/>
+        <div class="p-img" onclick="showDetail(${p.id})">${img}</div>
+        <div class="p-body" onclick="showDetail(${p.id})">
+          <div class="p-name">${p.name}</div>
+          ${price}${oldPrice}${rating}
+        </div>
+      </div>`;
+  }).join("");
+
+  renderPagination(totalPages);
+}
+
+// ── Render pagination ────────────────────────────────────────
+function renderPagination(totalPages) {
+  const box = document.getElementById("pagination");
+  if (totalPages <= 1) { box.innerHTML = ""; return; }
+
+  let html = "";
+
+  // Nút Prev
+  html += `<button class="page-btn" onclick="goPage(${currentPage-1})"
+    ${currentPage===1 ? "disabled" : ""}>‹</button>`;
+
+  // Số trang - hiện tối đa 7 nút
+  const pages = getPageRange(currentPage, totalPages);
+  pages.forEach(p => {
+    if (p === "...") {
+      html += `<span class="page-info">...</span>`;
+    } else {
+      html += `<button class="page-btn ${p===currentPage?"active":""}"
+        onclick="goPage(${p})">${p}</button>`;
+    }
+  });
+
+  // Nút Next
+  html += `<button class="page-btn" onclick="goPage(${currentPage+1})"
+    ${currentPage===totalPages ? "disabled" : ""}>›</button>`;
+
+  html += `<span class="page-info">${currentPage}/${totalPages}</span>`;
+  box.innerHTML = html;
+}
+
+function getPageRange(current, total) {
+  if (total <= 7) return Array.from({length: total}, (_, i) => i+1);
+  if (current <= 4) return [1,2,3,4,5,"...",total];
+  if (current >= total-3) return [1,"...",total-4,total-3,total-2,total-1,total];
+  return [1,"...",current-1,current,current+1,"...",total];
+}
+
+function goPage(page) {
+  const totalPages = Math.ceil(filteredProds.length / PAGE_SIZE);
+  if (page < 1 || page > totalPages) return;
+  currentPage = page;
+  renderPage();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// ── Chi tiết sản phẩm ────────────────────────────────────────
+async function showDetail(id) {
+  document.getElementById("view-list").style.display = "none";
+  document.getElementById("view-detail").style.display = "block";
+  const dc = document.getElementById("detail-content");
+  dc.innerHTML = `<div class="loading"><div class="spin"></div>Đang tải...</div>`;
+
+  try {
+    const r = await fetch(`${API}/product/${id}`);
+    const p = await r.json();
+
+    const imgHtml = p.image_url
+      ? `<img src="${p.image_url}" alt="${p.name}"
+           onerror="this.src='https://via.placeholder.com/270x270?text=No+Image'">`
+      : `<div style="color:#aad4ea;font-size:48px;text-align:center">+</div>`;
+
+    const sec = (title, content) => content
+      ? `<div class="info-block"><h3>${title}</h3><p>${content}</p></div>` : "";
+
+    const specs = p.specifications && Object.keys(p.specifications).length
+      ? `<div class="info-block">
+           <h3>Thông số sản phẩm</h3>
+           <table style="width:100%;border-collapse:collapse;font-size:13px">
+             ${Object.entries(p.specifications).map(([k,v]) => `
+               <tr>
+                 <td style="padding:6px 10px;background:#f4f9fc;font-weight:600;
+                   color:var(--blue);white-space:nowrap;width:35%;
+                   border-bottom:1px solid var(--border)">${k}</td>
+                 <td style="padding:6px 10px;border-bottom:1px solid var(--border)">${v}</td>
+               </tr>`).join("")}
+           </table>
+         </div>` : "";
+
+    dc.innerHTML = `
+      <div class="detail-box">
+        <div class="detail-top">
+          <div class="detail-img-wrap">${imgHtml}</div>
+          <div class="detail-info">
+            <h2>${p.name}</h2>
+            <div class="detail-price">${p.price || "Liên hệ"}</div>
+            ${p.original_price ? `<div style="font-size:14px;color:#999;text-decoration:line-through;margin-bottom:4px">Giá gốc: ${p.original_price}</div>` : ""}
+            ${p.rating ? `<div style="font-size:14px;color:#f59e0b;margin-bottom:12px">★ ${p.rating}</div>` : ""}
+            <a href="${p.url}" target="_blank" class="btn btn-primary" style="margin-bottom:10px">
+              Xem trên chiaki.vn
+            </a>
+          </div>
+        </div>
+        <div class="detail-body">
+          ${sec("Mô tả sản phẩm", p.description)}
+          ${sec("Thành phần", p.ingredients)}
+          ${sec("Cách dùng", p.usage)}
+          ${specs}
+          <div id="review-container"></div>
+          ${!p.description && !p.ingredients && !p.usage
+            ? `<p style="color:#999;font-style:italic">Xem đầy đủ tại
+               <a href="${p.url}" target="_blank">chiaki.vn</a></p>` : ""}
+        </div>
+      </div>`;
+
+    // Render comment bằng DOM
+    var reviewContainer = document.getElementById("review-container");
+    if (reviewContainer) renderCommentsDom(p.comments, reviewContainer);
+
+  } catch {
+    dc.innerHTML = `<div class="empty"><p>Không tải được chi tiết.</p></div>`;
+  }
+}
+
+// ── Render comment bằng createElement ───────────────────────
+function renderCommentsDom(comments, container) {
+  if (!comments || !comments.length) return;
+
+  var wrapper = document.createElement("div");
+  wrapper.className = "info-block";
+
+  var title = document.createElement("h3");
+  title.textContent = "Đánh giá khách hàng (" + comments.length + ")";
+  wrapper.appendChild(title);
+
+  comments.forEach(function(c) {
+    if (!c || typeof c !== "string") return;
+    var rating = 5;
+    var text = c;
+    var m = c.match(/\((\d)[^\)]*\)\s*$/);
+    if (m) { rating = parseInt(m[1]) || 5; text = c.slice(0, c.lastIndexOf("(")).trim(); }
+    var sep    = text.indexOf(": ");
+    var author = sep > -1 ? text.slice(0, sep).trim() : "Ẩn danh";
+    var body   = sep > -1 ? text.slice(sep + 2).trim() : text;
+    if (!body) return;
+    var words    = author.replace(/[^\w\sÀ-ỹ]/g," ").trim().split(/\s+/).filter(Boolean);
+    var initials = words.slice(0,2).map(function(w){return w[0].toUpperCase();}).join("") || "?";
+    var stars    = "★".repeat(Math.min(rating,5)) + "☆".repeat(Math.max(0,5-rating));
+
+    var item = document.createElement("div"); item.className = "review-item";
+    var header = document.createElement("div"); header.className = "review-header";
+    var avatar = document.createElement("div"); avatar.className = "review-avatar"; avatar.textContent = initials;
+    var meta   = document.createElement("div"); meta.className = "review-meta";
+    var aEl    = document.createElement("div"); aEl.className = "review-author"; aEl.textContent = author;
+    var sEl    = document.createElement("div"); sEl.className = "review-stars";  sEl.textContent = stars;
+    var bEl    = document.createElement("div"); bEl.className = "review-text";   bEl.textContent = body;
+    meta.appendChild(aEl); meta.appendChild(sEl);
+    header.appendChild(avatar); header.appendChild(meta);
+    item.appendChild(header); item.appendChild(bEl);
+    wrapper.appendChild(item);
+  });
+  container.appendChild(wrapper);
+}
+
+function backToList() {
+  document.getElementById("view-detail").style.display = "none";
+  document.getElementById("view-list").style.display = "block";
+}
+
+function showList() {
+  document.getElementById("view-detail").style.display = "none";
+  document.getElementById("view-list").style.display = "block";
+}
+
+// ── So sánh ─────────────────────────────────────────────────
+function toggleCmp(id, cb) {
+  if (cb.checked) {
+    if (selectedIds.length >= 4) { alert("Chỉ chọn tối đa 4 sản phẩm!"); cb.checked = false; return; }
+    selectedIds.push(id);
+  } else {
+    selectedIds = selectedIds.filter(i => i !== id);
+  }
+  updateCmpBar();
+}
+
+function updateCmpBar() {
+  const n = selectedIds.length;
+  document.getElementById("cmp-cnt").textContent = n;
+  document.getElementById("cmp-bar-cnt").textContent = n;
+  document.getElementById("cmp-bar").classList.toggle("show", n >= 2);
+  document.getElementById("cmp-btn").style.display = n >= 2 ? "inline-flex" : "none";
+}
+
+function clearCmp() {
+  selectedIds = [];
+  updateCmpBar();
+  document.querySelectorAll(".cb-cmp").forEach(cb => cb.checked = false);
+}
+
+function goCmp() {
+  if (selectedIds.length < 2) { alert("Chọn ít nhất 2 sản phẩm!"); return; }
+  location.href = `compare.html?ids=${selectedIds.join(",")}`;
+}
+
+// ── Init ────────────────────────────────────────────────────
+document.getElementById("q").addEventListener("keydown", e => e.key === "Enter" && doSearch());
+// Giá áp dụng khi nhấn nút "Áp dụng bộ lọc"
+
+const params = new URLSearchParams(location.search);
+if (params.get("id")) {
+  doSearch("").then(() => showDetail(+params.get("id")));
+} else {
+  doSearch(params.get("q") || "");
+}
+</script>
+</body>
+</html>

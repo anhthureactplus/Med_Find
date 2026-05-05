@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MedFind – Tra cứu dược phẩm</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+
+<header class="header">
+  <div class="header-inner">
+    <a href="index.html" class="logo">MedFind<small>Tra cứu dược phẩm</small></a>
+    <div class="h-search">
+      <input type="text" id="q" placeholder="Tìm tên thuốc, thành phần... VD: Vitamin C, Omega 3"/>
+      <button onclick="goSearch()">Tìm kiếm</button>
+    </div>
+    <ul class="h-nav">
+      <li><a href="index.html" class="active">Trang chủ</a></li>
+      <li><a href="search.html">Tìm kiếm</a></li>
+      <li><a href="compare.html">So sánh</a></li>
+    </ul>
+  </div>
+</header>
+
+<div class="cat-bar">
+  <div class="cat-bar-inner">
+    <a href="search.html?q=vitamin">Vitamin & Khoáng chất</a>
+    <a href="search.html?q=omega">Omega 3</a>
+    <a href="search.html?q=canxi">Canxi</a>
+    <a href="search.html?q=collagen">Collagen</a>
+    <a href="search.html?q=bo sung">Bổ sung dinh dưỡng</a>
+    <a href="search.html?q=men vi sinh">Men vi sinh</a>
+    <a href="search.html?q=tang cuong">Tăng cường sức đề kháng</a>
+  </div>
+</div>
+
+<section class="hero">
+  <h1 class="hero-title">Tra cứu thông tin dược phẩm nhanh chóng</h1>
+  <p>Tìm kiếm tên thuốc, xem thành phần, công dụng và so sánh các sản phẩm</p>
+</section>
+
+<div class="container">
+  <div class="sec-title">
+    Sản phẩm mới nhất
+    <a href="search.html">Xem tất cả</a>
+  </div>
+  <div class="p-grid" id="grid">
+    <div class="loading"><div class="spin"></div>Đang tải dữ liệu...</div>
+  </div>
+</div>
+
+<footer class="footer">
+  <p>Dữ liệu tham khảo từ <a href="https://chiaki.vn" target="_blank">chiaki.vn</a> – Không thay thế tư vấn y tế chuyên nghiệp</p>
+</footer>
+
+<script>
+const API = "http://localhost:8000";
+
+async function loadProducts() {
+  const grid = document.getElementById("grid");
+  try {
+    const r = await fetch(`${API}/products?limit=12`);
+    const d = await r.json();
+    if (!d.data.length) {
+      grid.innerHTML = `<div class="empty">
+        <p style="font-size:15px;font-weight:600;margin-bottom:8px">Chưa có dữ liệu trong database</p>
+        <p style="margin-bottom:12px">Hãy chạy lệnh sau trong thư mục backend:</p>
+        <code style="background:#fff;border:1px solid #cce8f7;padding:8px 16px;border-radius:6px;font-size:13px">
+          python crawl.py --max-pages 50
+        </code>
+      </div>`;
+      return;
+    }
+    grid.innerHTML = d.data.map(p => cardHTML(p)).join("");
+    grid.querySelectorAll(".p-card").forEach(el => {
+      el.addEventListener("click", () => {
+        location.href = `search.html?id=${el.dataset.id}`;
+      });
+    });
+  } catch {
+    grid.innerHTML = `<div class="empty">
+      <p style="font-size:15px;font-weight:600;margin-bottom:8px">Không kết nối được server</p>
+      <p>Khởi động backend trước: <code>python main.py</code></p>
+    </div>`;
+  }
+}
+
+function cardHTML(p) {
+  const img = p.image_url
+    ? `<img src="${p.image_url}" alt="${p.name}" onerror="this.parentElement.innerHTML='<span class=no-img>+</span>'">`
+    : `<span class="no-img">+</span>`;
+  const price = p.price ? `<div class="p-price">${p.price}</div>` : `<div class="p-price na">Liên hệ</div>`;
+  return `
+    <div class="p-card" data-id="${p.id}">
+      <div class="p-img">${img}</div>
+      <div class="p-body">
+        <div class="p-name">${p.name}</div>
+        ${price}
+      </div>
+    </div>`;
+}
+
+function goSearch()  { const q = document.getElementById("q").value.trim();  location.href = q ? `search.html?q=${encodeURIComponent(q)}` : "search.html"; }
+
+document.getElementById("q").addEventListener("keydown",  e => e.key==="Enter" && goSearch());
+
+loadProducts();
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+version: "3.9"
+
+services:
+  # API Backend
+  api:
+    build: .
+    container_name: medfind-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount DB ra ngoài để crawl thêm không cần rebuild
+      - ./backend/data:/app/backend/data
+    restart: always
+
+  # Frontend static server
+  frontend:
+    image: python:3.11-slim
+    container_name: medfind-frontend
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "5501:5500"
+    command: python -m http.server 5500
+    restart: always
+    depends_on:
+      - api

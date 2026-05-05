@@ -1,0 +1,33 @@
+[project]
+name = "medfind"
+version = "1.0.0"
+description = "Hệ thống tra cứu và so sánh dược phẩm - crawl từ chiaki.vn"
+requires-python = ">=3.11"
+
+dependencies = [
+    "fastapi==0.110.0",
+    "uvicorn==0.27.0",
+    "requests==2.31.0",
+    "beautifulsoup4==4.12.3",
+    "playwright",
+]
+
+[project.scripts]
+# Chạy API server: medfind-serve
+medfind-serve = "backend.main:app"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["backend*"]
+
+[tool.ruff]
+# Cấu hình linter (nếu dùng ruff để check code)
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+ignore = ["E501"]  # Bỏ qua cảnh báo dòng quá dài

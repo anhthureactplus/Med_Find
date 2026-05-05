@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>So sánh sản phẩm – MedFind</title>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+
+<header class="header">
+  <div class="header-inner">
+    <a href="index.html" class="logo">MedFind<small>Tra cứu dược phẩm</small></a>
+    <div class="h-search">
+      <input type="text" id="q" placeholder="Tìm sản phẩm để so sánh..."/>
+      <button onclick="searchAdd()">Tìm</button>
+    </div>
+    <ul class="h-nav">
+      <li><a href="index.html">Trang chủ</a></li>
+      <li><a href="search.html">Tìm kiếm</a></li>
+      <li><a href="compare.html" class="active">So sánh</a></li>
+    </ul>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Khu chọn sản phẩm -->
+  <div style="background:var(--white);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:18px">
+    <div style="font-size:14px;font-weight:700;margin-bottom:10px">Thêm sản phẩm vào bảng so sánh</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input type="text" id="q" placeholder="Gõ tên thuốc và nhấn Tìm..."
+        style="flex:1;min-width:200px;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;outline:none"/>
+      <button class="btn btn-primary" onclick="searchAdd()">Tìm sản phẩm</button>
+      <button class="btn btn-outline" onclick="loadCmp()" id="do-cmp-btn">
+        So sánh (<span id="sel-cnt">0</span>)
+      </button>
+      <button class="btn" style="background:#f2f4f5;color:#666" onclick="window.print()">
+        In bảng so sánh
+      </button>
+    </div>
+
+    <!-- Kết quả tìm kiếm nhỏ -->
+    <div id="search-results" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px"></div>
+
+    <!-- Các sản phẩm đã chọn -->
+    <div id="selected-chips" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px"></div>
+  </div>
+
+  <!-- Bảng so sánh -->
+  <div id="cmp-area"></div>
+
+</div>
+
+<footer class="footer">
+  <p>Dữ liệu tham khảo từ <a href="https://chiaki.vn" target="_blank">chiaki.vn</a> – Không thay thế tư vấn y tế chuyên nghiệp</p>
+</footer>
+
+<script>
+const API = "http://localhost:8000";
+let selectedIds = [];           // id đang chọn
+let selectedNames = {};         // id → tên
+
+/* ── Init từ URL params ────────────────────────────────────── */
+const params = new URLSearchParams(location.search);
+if (params.get("ids")) {
+  selectedIds = params.get("ids").split(",").map(Number).filter(Boolean);
+  loadCmp();
+}
+
+/* ── Tìm kiếm sản phẩm để thêm vào so sánh ────────────────── */
+async function searchAdd() {
+  const kw = document.getElementById("q").value.trim();
+  if (!kw) return;
+
+  const box = document.getElementById("search-results");
+  box.innerHTML = `<span style="color:#999;font-size:13px">Đang tìm...</span>`;
+
+  try {
+    const r = await fetch(`${API}/search?q=${encodeURIComponent(kw)}`);
+    const d = await r.json();
+
+    if (!d.data.length) {
+      box.innerHTML = `<span style="color:#999;font-size:13px">Không tìm thấy sản phẩm</span>`;
+      return;
+    }
+
+    box.innerHTML = d.data.slice(0, 8).map(p => {
+      const active = selectedIds.includes(p.id);
+      return `
+        <div onclick="toggleSel(${p.id},'${p.name.replace(/'/g,"\\'")}')" id="sr-${p.id}"
+          style="padding:7px 12px;border-radius:6px;border:1.5px solid ${active ? 'var(--blue)' : 'var(--border)'};
+            background:${active ? 'var(--blue-bg)' : '#fff'};cursor:pointer;font-size:13px;
+            color:${active ? 'var(--blue)' : 'var(--text)'};transition:all .18s">
+          ${active ? '✓ ' : ''}${p.name}
+        </div>`;
+    }).join("");
+  } catch {
+    box.innerHTML = `<span style="color:red;font-size:13px">Lỗi kết nối</span>`;
+  }
+}
+
+function toggleSel(id, name) {
+  if (selectedIds.includes(id)) {
+    selectedIds = selectedIds.filter(i => i !== id);
+    delete selectedNames[id];
+  } else {
+    if (selectedIds.length >= 4) { alert("Tối đa 4 sản phẩm!"); return; }
+    selectedIds.push(id);
+    selectedNames[id] = name;
+  }
+  renderChips();
+  updateUrl();
+
+  // Cập nhật style chip trong kết quả tìm
+  const el = document.getElementById(`sr-${id}`);
+  if (el) {
+    const active = selectedIds.includes(id);
+    el.style.borderColor = active ? "var(--blue)" : "var(--border)";
+    el.style.background  = active ? "var(--blue-bg)" : "#fff";
+    el.style.color       = active ? "var(--blue)" : "var(--text)";
+    el.textContent       = (active ? "✓ " : "") + (selectedNames[id] || name);
+  }
+}
+
+function renderChips() {
+  const box = document.getElementById("selected-chips");
+  document.getElementById("sel-cnt").textContent = selectedIds.length;
+
+  if (!selectedIds.length) { box.innerHTML = ""; return; }
+
+  box.innerHTML = selectedIds.map(id => `
+    <span style="display:inline-flex;align-items:center;gap:6px;
+      background:var(--blue);color:#fff;padding:5px 10px;
+      border-radius:20px;font-size:12px;font-weight:600">
+      ${selectedNames[id] || `Sản phẩm #${id}`}
+      <span onclick="toggleSel(${id},'')" style="cursor:pointer;opacity:.8">✕</span>
+    </span>`).join("");
+}
+
+function updateUrl() {
+  const url = new URL(location.href);
+  if (selectedIds.length) url.searchParams.set("ids", selectedIds.join(","));
+  else url.searchParams.delete("ids");
+  history.replaceState(null, "", url);
+}
+
+/* ── Load bảng so sánh ─────────────────────────────────────── */
+async function loadCmp() {
+  if (selectedIds.length < 2) { alert("Chọn ít nhất 2 sản phẩm!"); return; }
+
+  const area = document.getElementById("cmp-area");
+  area.innerHTML = `<div class="loading"><div class="spin"></div>Đang tải dữ liệu...</div>`;
+
+  try {
+    const r = await fetch(`${API}/compare?ids=${selectedIds.join(",")}`);
+    const d = await r.json();
+
+    // Cập nhật selectedNames từ data trả về
+    d.products.forEach(p => { selectedNames[p.id] = p.name; });
+    renderChips();
+    renderTable(d.products);
+  } catch {
+    area.innerHTML = `<div class="empty"><p>Lỗi tải dữ liệu. Hãy kiểm tra backend.</p></div>`;
+  }
+}
+
+/* ── Render bảng so sánh ───────────────────────────────────── */
+function renderTable(products) {
+  const area = document.getElementById("cmp-area");
+  if (!products.length) {
+    area.innerHTML = `<div class="empty"><p>Không tìm thấy sản phẩm.</p></div>`;
+    return;
+  }
+
+  const CRITERIA = [
+    { key: "price",       label: "Giá bán" },
+    { key: "ingredients", label: "Thành phần" },
+    { key: "usage",       label: "Cách dùng" },
+    { key: "description", label: "Mô tả" },
+  ];
+
+  // Header: ảnh + tên từng sản phẩm
+  const heads = products.map(p => {
+    const img = p.image_url
+      ? `<img src="${p.image_url}" onerror="this.src='https://via.placeholder.com/64?text=?'">`
+      : `<div style="width:64px;height:64px;background:var(--blue-bg);border-radius:5px;margin:0 auto 8px"></div>`;
+    return `
+      <th>
+        <div class="cmp-prod-head">
+          ${img}
+          <div class="pname">${p.name}</div>
+          <div class="pprice">${p.price || "Liên hệ"}</div>
+          <a href="${p.url}" target="_blank"
+            style="display:inline-block;margin-top:5px;font-size:11px;color:rgba(255,255,255,.8)">
+            Xem tại chiaki.vn
+          </a>
+        </div>
+      </th>`;
+  }).join("");
+
+  // Rows
+  const rows = CRITERIA.map(c => {
+    const cells = products.map(p => {
+      const val = p[c.key];
+      return val
+        ? `<td>${val}</td>`
+        : `<td class="na">Không có thông tin</td>`;
+    }).join("");
+    return `<tr><td class="lbl-td">${c.label}</td>${cells}</tr>`;
+  }).join("");
+
+  area.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="sec-title" style="margin:0;border:none;padding:0">Bảng so sánh chi tiết</div>
+      <button class="btn btn-outline" onclick="window.print()">In bảng so sánh</button>
+    </div>
+    <div class="cmp-scroll">
+      <table class="cmp-tbl">
+        <thead>
+          <tr>
+            <th class="lbl-th">Tiêu chí</th>
+            ${heads}
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px">
+      <a href="search.html" class="btn btn-outline">← Quay lại tìm kiếm</a>
+    </div>`;
+}
+
+document.getElementById("q").addEventListener("keydown", e => e.key === "Enter" && searchAdd());
+</script>
+</body>
+</html>
