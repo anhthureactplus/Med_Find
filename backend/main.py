@@ -28,8 +28,8 @@ app = FastAPI(
 # Cho phép frontend (chạy trên file:// hoặc localhost) gọi API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Trong production nên giới hạn lại
-    allow_methods=["GET"],
+    allow_origins=["*"],  # Cho phép tất cả origin
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
@@ -39,11 +39,28 @@ app.include_router(router)
 
 @app.on_event("startup")
 def startup():
-    """Chạy khi server khởi động - khởi tạo database"""
+    """Chạy khi server khởi động - khởi tạo database và BM25 index"""
     init_db()
-    # Avoid Windows console encoding issues
-    print("[SERVER] API ready at http://localhost:8000")
-    print("[SERVER] Docs at: http://localhost:8000/docs")
+
+    # Build BM25 index từ toàn bộ sản phẩm trong DB
+    try:
+        from database.bm25_search import build_index
+        from database.db import get_all_products, get_stats
+        stats = get_stats()
+        total = stats["total_products"]
+        if total > 0:
+            # Lấy tất cả sản phẩm để build index
+            products = get_all_products(limit=total)
+            ok = build_index(products)
+            if ok:
+                print(f"[BM25] Index sẵn sàng: {total} sản phẩm")
+        else:
+            print("[BM25] DB trống, chưa build index")
+    except Exception as e:
+        print(f"[BM25] Không build được index: {e}")
+
+    print("[SERVER] API server đã sẵn sàng tại http://localhost:8000")
+    print("[SERVER] Xem docs tại: http://localhost:8000/docs")
 
 
 @app.get("/")

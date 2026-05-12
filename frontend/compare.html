@@ -24,7 +24,7 @@
   </div>
 </header>
 
-<div class="container">
+<div class="container" style="min-height:calc(100vh - 120px)">
 
   <!-- Khu chọn sản phẩm -->
   <div style="background:var(--white);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:18px">
@@ -58,7 +58,10 @@
 </footer>
 
 <script>
-const API = "http://localhost:8000";
+// Tự động dùng đúng API URL cho cả local và Docker
+const API = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+  ? "http://localhost:8000"
+  : `http://${window.location.hostname}:8000`;
 let selectedIds = [];           // id đang chọn
 let selectedNames = {};         // id → tên
 

@@ -29,17 +29,45 @@ def list_products(limit: int = 20, offset: int = 0):
 @router.get("/search")
 def search(q: str = Query(..., min_length=1, description="Từ khóa tìm kiếm")):
     """
-    Tìm kiếm sản phẩm theo tên hoặc mô tả.
-    GET /search?q=paracetamol
+    Tìm kiếm sản phẩm dùng BM25 (nếu sẵn sàng) hoặc LIKE (fallback).
+    BM25 cho kết quả tốt hơn vì xét tần suất từ và độ hiếm.
+    GET /search?q=vitamin c
     """
     if not q.strip():
         raise HTTPException(status_code=400, detail="Từ khóa không được để trống")
 
-    results = search_products(keyword=q.strip())
+    keyword = q.strip()
+
+    # Thử BM25 trước
+    try:
+        from database.bm25_search import bm25_search, is_ready
+        if is_ready():
+            bm25_results = bm25_search(query=keyword, limit=40)
+            if bm25_results:
+                # Lấy full product info từ SQLite theo id đã rank
+                ids = [r["id"] for r in bm25_results]
+                products = get_products_by_ids(ids)
+
+                # Giữ đúng thứ tự rank của BM25
+                id_order = {pid: i for i, pid in enumerate(ids)}
+                products.sort(key=lambda p: id_order.get(p["id"], 999))
+
+                return {
+                    "keyword": keyword,
+                    "total":   len(products),
+                    "data":    products,
+                    "mode":    "bm25",
+                }
+    except Exception as e:
+        pass  # Fallback về SQLite LIKE
+
+    # Fallback: SQLite LIKE search
+    results = search_products(keyword=keyword)
     return {
-        "keyword": q,
-        "total": len(results),
-        "data": results,
+        "keyword": keyword,
+        "total":   len(results),
+        "data":    results,
+        "mode":    "keyword",
     }
 
 
@@ -83,10 +111,47 @@ def compare_products(ids: str = Query(..., description="Danh sách ID cách nhau
     return comparison
 
 
+@router.get("/semantic-search")
+def semantic_search_route(q: str = Query(..., min_length=1, description="Câu tìm kiếm ngữ nghĩa")):
+    """
+    Tìm kiếm theo ngữ nghĩa dùng ChromaDB + sentence-transformers.
+    Hiểu được ý nghĩa câu hỏi, không chỉ khớp từ khóa.
+    VD: "thuốc bổ mắt" → tìm được Vitamin A, Lutein dù không có từ đó trong tên
+    GET /semantic-search?q=thuoc bo mat
+    """
+    try:
+        from database.vector_db import semantic_search, is_available
+        if not is_available():
+            # Fallback về SQLite nếu ChromaDB chưa cài
+            results = search_products(keyword=q.strip())
+            return {"keyword": q, "total": len(results), "data": results,
+                    "mode": "keyword", "note": "ChromaDB chưa sẵn sàng, dùng tìm kiếm từ khóa"}
+
+        results = semantic_search(query=q.strip())
+
+        # Nếu ChromaDB không có kết quả tốt → fallback SQLite
+        if not results:
+            results = search_products(keyword=q.strip())
+            return {"keyword": q, "total": len(results), "data": results, "mode": "keyword"}
+
+        return {"keyword": q, "total": len(results), "data": results, "mode": "semantic"}
+
+    except Exception as e:
+        # Fallback an toàn
+        results = search_products(keyword=q.strip())
+        return {"keyword": q, "total": len(results), "data": results, "mode": "keyword"}
+
+
 @router.get("/stats")
 def stats():
     """
     Thống kê tổng quan database.
     GET /stats
     """
-    return get_stats()
+    from database.vector_db import get_stats as chroma_stats
+    sqlite_stats = get_stats()
+    try:
+        chroma = chroma_stats()
+    except Exception:
+        chroma = {"available": False}
+    return {**sqlite_stats, "chromadb": chroma}
